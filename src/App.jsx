@@ -1,5 +1,11 @@
 import { useState, useMemo } from "react";
 import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip } from "./eml.js";
+import {
+  exp_t, ln_t, sub_t, neg_t, add_t, mul_t, div_t, pow_t, recip_t, sqrt_t,
+  E_t, mkVar, mkLit,
+  countNodes, countDepth, bfsOrder, OPEN_CHALLENGES,
+} from "./eml_tree.js";
+import TreeViz from "./TreeViz.jsx";
 
 // ─── Safe eval ────────────────────────────────────────────────────────────────
 function safeEval(expr, x) {
@@ -142,7 +148,51 @@ export default function App() {
   const [xVal,       setXVal]       = useState(1.0);
   const [customExpr, setCustomExpr] = useState("pow(x, 3)");
   const [customX,    setCustomX]    = useState(2.0);
-  const [tab,        setTab]        = useState("verify"); // verify | table | sandbox
+  const [tab,        setTab]        = useState("verify"); // verify | table | sandbox | tree
+  const [treeExpr,   setTreeExpr]   = useState("pow(x, 3)");
+  const [treeKey,    setTreeKey]    = useState(0); // increment to restart animation
+  const [treeRoot,   setTreeRoot]   = useState(null);
+  const [treeError,  setTreeError]  = useState(null);
+
+  const buildTree = (expr) => {
+    const clean = expr.trim();
+    const challenge = OPEN_CHALLENGES.find(k => clean.toLowerCase().includes(k));
+    if (challenge) {
+      setTreeError(`"${challenge}" — no known EML construction under strict principal-branch grammar (open problem). Pull requests welcome.`);
+      setTreeRoot(null);
+      return;
+    }
+    if (!/^[emlxadivosubnegpwrctq\d\s.,()e\-+/*]+$/i.test(clean)) {
+      setTreeError("Invalid expression. Use: exp ln neg add sub mul div pow recip sqrt eml x");
+      setTreeRoot(null);
+      return;
+    }
+    try {
+      const X = mkVar("x");
+      const ctx = {
+        eml: (a, b) => ({ tag: "eml", left: a, right: b }),
+        exp: exp_t, ln: ln_t, sub: sub_t, neg: neg_t,
+        add: add_t, mul: mul_t, div: div_t, pow: pow_t,
+        recip: recip_t, sqrt: sqrt_t,
+        x: X, e: E_t,
+      };
+      const js = clean.replace(/\beml\b/g, "_eml");
+      const fn = new Function(
+        "_eml","exp","ln","neg","add","sub","mul","div","pow","recip","sqrt","x","e",
+        `"use strict"; return (${js});`
+      );
+      const result = fn(
+        ctx.eml, exp_t, ln_t, neg_t, add_t, sub_t, mul_t, div_t, pow_t, recip_t, sqrt_t, X, E_t
+      );
+      if (!result || typeof result !== "object" || !result.tag) throw new Error("bad result");
+      setTreeRoot(result);
+      setTreeError(null);
+      setTreeKey(k => k + 1);
+    } catch (err) {
+      setTreeError("Could not build tree — check expression syntax.");
+      setTreeRoot(null);
+    }
+  };
 
   const identity = IDENTITIES.find(i => i.id === activeId);
 
@@ -192,7 +242,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4 }}>
-            {["verify","table","sandbox"].map(t => (
+            {["verify","table","sandbox","tree"].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
                 padding:"5px 12px", fontSize:10, borderRadius:4, textTransform:"uppercase",
                 letterSpacing:"0.06em",
@@ -495,12 +545,126 @@ export default function App() {
         </div>
       )}
 
+      {/* ── TAB: TREE ── */}
+      {tab === "tree" && (
+        <div>
+          <div style={{ fontSize:10, color:C.muted, marginBottom:14, lineHeight:1.8 }}>
+            Type any EML expression and watch it decompose into a branching tree.
+            Every internal node is one{" "}<span style={{ color:C.accent }}>eml(·,·)</span>{" "}call.
+            Leaves are terminals:{" "}<span style={{ color:C.blue }}>1</span>,{" "}
+            <span style={{ color:C.blue }}>x</span>, numeric literals.
+          </div>
+
+          {/* Input row */}
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+            borderRadius:8, padding:16, marginBottom:12 }}>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+              {[
+                "exp(x)", "ln(x)", "mul(x, x)", "pow(x, 3)",
+                "add(2, 3)", "recip(x)", "sqrt(x)", "div(x, 2)",
+              ].map(preset => (
+                <button key={preset}
+                  onClick={() => { setTreeExpr(preset); }}
+                  style={{
+                    fontSize:10, padding:"4px 10px",
+                    background: treeExpr === preset ? "rgba(232,160,32,0.12)" : C.tag,
+                    border:`1px solid ${treeExpr === preset ? C.accent : C.border}`,
+                    color: treeExpr === preset ? C.accent : C.muted, borderRadius:3,
+                  }}>
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <input type="text" value={treeExpr}
+                onChange={e => setTreeExpr(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && buildTree(treeExpr)}
+                placeholder="e.g. pow(x, 3)"
+                style={{ flex:1, background:C.bg, border:`1px solid ${C.border}`,
+                  borderRadius:4, color:C.accent, padding:"9px 12px", fontSize:13,
+                  fontFamily:"'Space Mono',monospace" }} />
+              <button onClick={() => buildTree(treeExpr)} style={{
+                padding:"9px 20px", fontSize:11, fontWeight:700,
+                background:"rgba(232,160,32,0.15)", border:`1px solid ${C.accent}`,
+                color:C.accent, borderRadius:4, letterSpacing:"0.04em",
+              }}>
+                BUILD
+              </button>
+            </div>
+          </div>
+
+          {/* Error message */}
+          {treeError && (
+            <div style={{ background:"rgba(224,80,96,0.08)", border:`1px solid ${C.red}`,
+              borderRadius:6, padding:"10px 14px", marginBottom:12,
+              fontSize:11, color:C.red, lineHeight:1.7 }}>
+              {treeError}
+            </div>
+          )}
+
+          {/* Stats + Tree */}
+          {treeRoot && !treeError && (() => {
+            const nodes = countNodes(treeRoot);
+            const depth = countDepth(treeRoot);
+            const done  = bfsOrder(treeRoot).length;
+            return (
+              <div>
+                <div style={{ display:"flex", gap:20, marginBottom:14 }}>
+                  {[
+                    { label:"Nodes", value: nodes, color: C.accent },
+                    { label:"Depth", value: depth, color: C.blue },
+                    { label:"eml calls", value: Math.floor(nodes / 2), color: C.green },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background:C.surface,
+                      border:`1px solid ${C.border}`, borderRadius:6,
+                      padding:"8px 16px", textAlign:"center" }}>
+                      <div style={{ fontSize:9, color:C.muted, letterSpacing:"0.08em",
+                        textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                      <div style={{ fontSize:22, fontWeight:700, color }}>{value}</div>
+                    </div>
+                  ))}
+                  <button onClick={() => setTreeKey(k => k + 1)} style={{
+                    marginLeft:"auto", padding:"8px 16px", fontSize:10,
+                    background:"transparent", border:`1px solid ${C.border}`,
+                    color:C.muted, borderRadius:6, letterSpacing:"0.04em",
+                    alignSelf:"center",
+                  }}>
+                    REPLAY ↺
+                  </button>
+                </div>
+                <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+                  borderRadius:8, padding:16, overflowX:"auto" }}>
+                  <TreeViz root={treeRoot} animKey={treeKey} />
+                </div>
+                <div style={{ marginTop:8, fontSize:9, color:C.muted }}>
+                  orange = eml operator node · blue = terminal (1, x, literal)
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Empty state — shown before first build */}
+          {!treeRoot && !treeError && (
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:8, padding:"40px 16px", textAlign:"center" }}>
+              <div style={{ fontSize:11, color:C.muted }}>
+                Type an expression above and press BUILD to render its EML tree.
+              </div>
+              <div style={{ marginTop:8, fontSize:9, color:C.muted }}>
+                Try: <span style={{ color:C.accent }}>pow(x, 3)</span> — 15 nodes, depth 8
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Footer */}
       <div style={{ marginTop:20, paddingTop:14, borderTop:`1px solid ${C.border}`,
         fontSize:9, color:C.muted, display:"flex", justifyContent:"space-between",
         flexWrap:"wrap", gap:6 }}>
         <span>Odrzywołek (2026) · arXiv:2603.21852v2 · CC BY 4.0</span>
-        <span>github.com/your-username/eml-arithmetic</span>
+        <span>github.com/almaguer1986/monogate</span>
       </div>
     </div>
   );
