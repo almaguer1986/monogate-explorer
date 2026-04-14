@@ -38,7 +38,7 @@ These functions have no known EML construction using only the constant `1`:
 | π | open |
 | i (√−1) | open — *see note* |
 
-> **Note on the complex extension:** Extending the grammar to complex numbers (`eml_c(x,y) = exp_c(x) − ln_c(y)`) produces `−iπ` in 12 nodes from the single terminal `{1}` — the first non-real value reachable from one real constant. Under our grammar (strict principal-branch ln, `ln(0)` undefined), constructing `i` requires a second terminal (`2`), which then unlocks `π` and Euler's formula `exp(ix) = cos(x) + i·sin(x)` as a single EML expression.
+> **Note on the complex extension:** Extending the grammar to complex numbers (`eml_c(x,y) = exp_c(x) − ln_c(y)`) produces `−iπ` in **11 nodes** from the single terminal `{1}` — the first non-real value reachable from one real constant. Under our grammar (strict principal-branch ln, `ln(0)` undefined), constructing `i` requires a second terminal (`2`), which then unlocks `π` and Euler's formula `exp(ix) = cos(x) + i·sin(x)` as a single EML expression.
 >
 > **Grammar note:** The table above reflects the *strict principal-branch* grammar where `ln(0)` is undefined. Under the *extended-reals* convention (`ln(0) = −∞`), as used in [pveierland/eml-eval](https://github.com/pveierland/eml-eval) and the original Odrzywołek paper, `i` IS constructible from `{1}` alone (K=75, depth=19, via `exp(ln(−1)/2)` where `2 = add(1,1)` is reachable through that convention's `neg`). The two results are not contradictory — they characterize different grammars. Whether `{1}` generates `i` under the strict grammar remains open. Pull requests welcome.
 
