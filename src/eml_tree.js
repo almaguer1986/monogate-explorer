@@ -11,12 +11,16 @@
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-const eml = (x, y) => ({ tag: "eml", left: x, right: y });
-const ONE = { tag: "lit", label: "1" };
-const TWO = { tag: "lit", label: "2" };
-
 export const mkLit = (v) => ({ tag: "lit", label: String(v) });
 export const mkVar = (name = "x") => ({ tag: "lit", label: name });
+
+// Auto-wrap: numbers and strings become lit nodes; objects pass through unchanged.
+const _wrap = (v) =>
+  v !== null && typeof v === "object" && v.tag ? v : mkLit(v);
+
+const eml = (x, y) => ({ tag: "eml", left: _wrap(x), right: _wrap(y) });
+const ONE = { tag: "lit", label: "1" };
+const TWO = { tag: "lit", label: "2" };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
