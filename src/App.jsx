@@ -156,7 +156,7 @@ export default function App() {
 
   const buildTree = (expr) => {
     const clean = expr.trim();
-    const challenge = OPEN_CHALLENGES.find(k => clean.toLowerCase().includes(k));
+    const challenge = OPEN_CHALLENGES.find(k => new RegExp(`\\b${k}\\b`).test(clean.toLowerCase()));
     if (challenge) {
       setTreeError(`"${challenge}" — no known EML construction under strict principal-branch grammar (open problem). Pull requests welcome.`);
       setTreeRoot(null);
@@ -564,7 +564,7 @@ export default function App() {
                 "add(2, 3)", "recip(x)", "sqrt(x)", "div(x, 2)",
               ].map(preset => (
                 <button key={preset}
-                  onClick={() => { setTreeExpr(preset); }}
+                  onClick={() => { setTreeExpr(preset); buildTree(preset); }}
                   style={{
                     fontSize:10, padding:"4px 10px",
                     background: treeExpr === preset ? "rgba(232,160,32,0.12)" : C.tag,
