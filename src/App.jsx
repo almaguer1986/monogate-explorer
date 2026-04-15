@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip } from "./eml.js";
+import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip,
+         BEST, sin_best, cos_best, pow_exl, div_edl, ln_exl } from "./eml.js";
 import {
   exp_t, ln_t, sub_t, neg_t, add_t, mul_t, div_t, pow_t, recip_t, sqrt_t,
   E_t, mkVar, mkLit,
@@ -148,7 +149,8 @@ export default function App() {
   const [xVal,       setXVal]       = useState(1.0);
   const [customExpr, setCustomExpr] = useState("pow(x, 3)");
   const [customX,    setCustomX]    = useState(2.0);
-  const [tab,        setTab]        = useState("verify"); // verify | table | sandbox | tree
+  const [tab,        setTab]        = useState("verify"); // verify | table | sandbox | tree | best
+  const [bestX,      setBestX]      = useState(1.0);
   const [treeExpr,   setTreeExpr]   = useState("pow(x, 3)");
   const [treeKey,    setTreeKey]    = useState(0); // increment to restart animation
   const [treeRoot,   setTreeRoot]   = useState(null);
@@ -242,7 +244,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4 }}>
-            {["verify","table","sandbox","tree"].map(t => (
+            {["verify","table","sandbox","tree","best"].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
                 padding:"5px 12px", fontSize:10, borderRadius:4, textTransform:"uppercase",
                 letterSpacing:"0.06em",
@@ -441,19 +443,28 @@ export default function App() {
                 </div>
               </div>
             ))}
-            {/* Open challenges */}
-            {["sin x","cos x","tan x","π","i"].map((name,i) => (
-              <div key={name} style={{
+            {/* Open challenges + BEST Taylor results */}
+            {[
+              { name:"sin x", note:"Taylor via BEST: 63n (8 terms, err<7.7e-7)", nodes:"63*", status:"taylor", onClick:()=>setTab("best") },
+              { name:"cos x", note:"Taylor via BEST: 54n (8 terms, err<4.2e-6)", nodes:"54*", status:"taylor", onClick:()=>setTab("best") },
+              { name:"tan x", note:"sin/cos ratio — composable", nodes:"~120*", status:"open", onClick:null },
+              { name:"π",     note:"no closed-form EML expression", nodes:"?", status:"open", onClick:null },
+              { name:"i",     note:"open under strict grammar", nodes:"?", status:"open", onClick:null },
+            ].map(({name,note,nodes,status,onClick},i) => (
+              <div key={name} onClick={onClick || undefined} style={{
                 display:"grid", gridTemplateColumns:"1.2fr 2fr 0.6fr 0.6fr 0.8fr",
                 padding:"9px 14px", fontSize:11, alignItems:"center",
                 borderBottom: i<4 ? `1px solid ${C.border}` : "none",
-                background: "rgba(78,81,104,0.06)"
+                background: "rgba(78,81,104,0.06)",
+                cursor: onClick ? "pointer" : "default",
               }}>
-                <div style={{ color:C.muted }}>{name}</div>
-                <div style={{ color:C.muted, fontSize:9 }}>— open challenge —</div>
-                <div style={{ color:C.muted, fontSize:9 }}>?</div>
-                <div style={{ color:C.muted, fontSize:9 }}>?</div>
-                <div style={{ fontSize:9, color:C.muted }}>? open</div>
+                <div style={{ color: status==="taylor" ? C.accent : C.muted }}>{name}</div>
+                <div style={{ color: status==="taylor" ? C.green : C.muted, fontSize:9 }}>{note}</div>
+                <div style={{ color: status==="taylor" ? C.accent : C.muted, fontSize:9 }}>{nodes}</div>
+                <div style={{ color:C.muted, fontSize:9 }}>—</div>
+                <div style={{ fontSize:9, color: status==="taylor" ? C.green : C.muted }}>
+                  {status==="taylor" ? "~ Taylor" : "? open"}
+                </div>
               </div>
             ))}
           </div>
@@ -658,6 +669,147 @@ export default function App() {
           )}
         </div>
       )}
+
+      {/* ── TAB: BEST ── */}
+      {tab === "best" && (() => {
+        const sinVal  = (() => { try { const r = sin_best(bestX); return isFinite(r) ? r : null; } catch { return null; }})();
+        const cosVal  = (() => { try { const r = cos_best(bestX); return isFinite(r) ? r : null; } catch { return null; }})();
+        const sinRef  = Math.sin(bestX);
+        const cosRef  = Math.cos(bestX);
+        const sinErr  = sinVal !== null ? Math.abs(sinVal - sinRef) : null;
+        const cosErr  = cosVal !== null ? Math.abs(cosVal - cosRef) : null;
+
+        const ROUTING = [
+          { op:"ln",    via:"EXL", nodes:1,  eml:3,  formula:"exl(0, x)" },
+          { op:"pow",   via:"EXL", nodes:3,  eml:15, formula:"exl(exl(exl(0,n),x),e)" },
+          { op:"div",   via:"EDL", nodes:1,  eml:15, formula:"edl(ln(x),exp(y))" },
+          { op:"recip", via:"EDL", nodes:2,  eml:5,  formula:"edl(0,edl(x,e))" },
+          { op:"mul",   via:"EDL", nodes:7,  eml:13, formula:"div_edl(x, recip_edl(y))" },
+          { op:"neg",   via:"EDL", nodes:6,  eml:9,  formula:"edl(ln(x), 1/e)" },
+          { op:"exp",   via:"EML", nodes:1,  eml:1,  formula:"eml(x, 1)" },
+          { op:"sub",   via:"EML", nodes:5,  eml:5,  formula:"eml(ln(x), exp(y))" },
+          { op:"add",   via:"EML", nodes:11, eml:11, formula:"eml(ln(x), eml(neg(y),1))" },
+        ];
+        const totalBest = ROUTING.reduce((s, r) => s + r.nodes, 0);
+        const totalEml  = ROUTING.reduce((s, r) => s + r.eml, 0);
+
+        const VIA_COL = { EXL: C.blue, EDL: "#b08af5", EML: C.accent };
+
+        return (
+          <div>
+            <div style={{ fontSize:10, color:C.muted, marginBottom:16, lineHeight:1.8 }}>
+              <b style={{ color:C.accent }}>BEST</b> routes each operation to whichever operator (EML/EDL/EXL)
+              uses fewest nodes. Total: <b style={{ color:C.accent }}>{totalBest}</b> nodes vs{" "}
+              <b style={{ color:C.muted }}>{totalEml}</b> all-EML — saves{" "}
+              <b style={{ color:C.green }}>{totalEml - totalBest} ({Math.round(100*(totalEml-totalBest)/totalEml)}%)</b>.
+            </div>
+
+            {/* Routing table */}
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:8, overflow:"hidden", marginBottom:16 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"0.8fr 0.7fr 0.5fr 0.5fr 0.6fr 2fr",
+                padding:"7px 14px", borderBottom:`1px solid ${C.border}`,
+                fontSize:9, color:C.muted, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                {["Op","Via","Nodes","EML","Saving","Formula"].map(h=><div key={h}>{h}</div>)}
+              </div>
+              {ROUTING.map((r, i) => {
+                const saving = r.eml - r.nodes;
+                return (
+                  <div key={r.op} style={{
+                    display:"grid", gridTemplateColumns:"0.8fr 0.7fr 0.5fr 0.5fr 0.6fr 2fr",
+                    padding:"7px 14px", fontSize:11, alignItems:"center",
+                    borderBottom: i < ROUTING.length - 1 ? `1px solid ${C.border}` : "none",
+                    background: i%2===0 ? "transparent" : "rgba(255,255,255,0.012)",
+                  }}>
+                    <div style={{ color:C.text }}>{r.op}</div>
+                    <div style={{ color: VIA_COL[r.via] ?? C.muted, fontSize:10, fontWeight:700 }}>{r.via}</div>
+                    <div style={{ color:C.accent }}>{r.nodes}n</div>
+                    <div style={{ color:C.muted }}>{r.eml}n</div>
+                    <div style={{ color: saving > 0 ? C.green : C.muted, fontSize:10 }}>
+                      {saving > 0 ? `−${saving}n` : "same"}
+                    </div>
+                    <div style={{ color:C.muted, fontSize:9, wordBreak:"break-all" }}>{r.formula}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* sin(x) + cos(x) live demo */}
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:8, padding:16, marginBottom:12 }}>
+              <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase",
+                letterSpacing:"0.1em", marginBottom:12 }}>sin(x) and cos(x) via 8-term Taylor</div>
+              <div style={{ display:"flex", justifyContent:"space-between",
+                fontSize:10, color:C.muted, marginBottom:6 }}>
+                <span>x = <span style={{ color:C.text }}>{bestX.toFixed(4)}</span></span>
+                <span style={{ color:C.muted }}>63 nodes (BEST) vs 245 all-EML</span>
+              </div>
+              <input type="range" min={-Math.PI} max={Math.PI} step={0.001}
+                value={bestX} onChange={e => setBestX(parseFloat(e.target.value))} />
+
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:12 }}>
+                {[
+                  { label:"sin(x)", best:sinVal, ref:sinRef, err:sinErr, note:"pow_exl (3n) × 7 terms + sub_eml" },
+                  { label:"cos(x)", best:cosVal, ref:cosRef, err:cosErr, note:"pow_exl (3n) × 7 terms + add_eml" },
+                ].map(({ label, best, ref, err, note }) => (
+                  <div key={label} style={{ background:C.bg, border:`1px solid ${C.border}`,
+                    borderRadius:5, padding:"10px 12px" }}>
+                    <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase",
+                      letterSpacing:"0.1em", marginBottom:6 }}>{label}</div>
+                    <div style={{ display:"flex", justifyContent:"space-between",
+                      alignItems:"flex-end", gap:8 }}>
+                      <div>
+                        <div style={{ fontSize:9, color:C.muted, marginBottom:2 }}>BEST</div>
+                        <div style={{ fontSize:14, color:C.accent }}>{best !== null ? fmt(best) : "—"}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:9, color:C.muted, marginBottom:2 }}>reference</div>
+                        <div style={{ fontSize:14, color:C.blue }}>{fmt(ref)}</div>
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:9, color:C.muted, marginBottom:2 }}>|error|</div>
+                        <div style={{ fontSize:12, color: errCol(err) }}>{fmtErr(err)}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize:8, color:C.muted, marginTop:6 }}>{note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Node count accuracy table */}
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:8, overflow:"hidden" }}>
+              <div style={{ padding:"7px 14px", borderBottom:`1px solid ${C.border}`,
+                fontSize:9, color:C.muted, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                sin(x) node count vs accuracy (Taylor terms)
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"0.6fr 0.8fr 0.8fr 0.8fr 1fr",
+                padding:"7px 14px", borderBottom:`1px solid ${C.border}`,
+                fontSize:9, color:C.muted }}>
+                {["Terms","Nodes (BEST)","Nodes (EML)","Saving","Max error"].map(h=><div key={h}>{h}</div>)}
+              </div>
+              {[
+                [4, 27, 105, "7.5e-2"], [6, 45, 175, "4.5e-4"], [8, 63, 245, "7.7e-7"],
+                [10, 81, 315, "5.3e-10"], [12, 99, 385, "1.8e-13"],
+              ].map(([terms, nb, ne, err], i) => (
+                <div key={terms} style={{
+                  display:"grid", gridTemplateColumns:"0.6fr 0.8fr 0.8fr 0.8fr 1fr",
+                  padding:"6px 14px", fontSize:11,
+                  borderBottom: i < 4 ? `1px solid ${C.border}` : "none",
+                  background: i%2===0 ? "transparent" : "rgba(255,255,255,0.012)",
+                }}>
+                  <div style={{ color:C.muted }}>{terms}</div>
+                  <div style={{ color:C.accent }}>{nb}</div>
+                  <div style={{ color:C.muted }}>{ne}</div>
+                  <div style={{ color:C.green }}>−{ne-nb} (74%)</div>
+                  <div style={{ color: parseFloat(err) < 1e-6 ? C.green : C.muted }}>{err}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Footer */}
       <div style={{ marginTop:20, paddingTop:14, borderTop:`1px solid ${C.border}`,

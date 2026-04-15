@@ -4,6 +4,7 @@
  * Reference: arXiv:2603.21852 (Odrzywołek, 2026)
  */
 
+// ─── EML ──────────────────────────────────────────────────────────────────────
 export const op = (x, y) => Math.exp(x) - Math.log(y);
 
 export const E    = op(1, 1);
@@ -33,6 +34,64 @@ export const mul   = (x, y) => op(add(ln(x), ln(y)), 1);
 export const div   = (x, y) => op(add(ln(x), neg(ln(y))), 1);
 export const pow   = (x, n) => op(mul(n, ln(x)), 1);
 export const recip = (x)    => op(neg(ln(x)), 1);
+
+// ─── EDL ──────────────────────────────────────────────────────────────────────
+// edl(x, y) = exp(x) / ln(y)   natural constant: e
+export const edl = (x, y) => Math.exp(x) / Math.log(y);
+export const EDL_E = Math.E;
+const _exp_edl = (x) => edl(x, EDL_E);
+const _ln_edl  = (x) => edl(0, edl(edl(0, x), EDL_E));
+export const div_edl   = (x, y) => edl(_ln_edl(x), _exp_edl(y));
+export const recip_edl = (x)    => edl(0, edl(x, EDL_E));
+export const neg_edl   = (x)    => { const re = edl(0, edl(EDL_E, EDL_E)); return edl(_ln_edl(x), re); };
+export const mul_edl   = (x, y) => div_edl(x, recip_edl(y));
+export const pow_edl   = (x, n) => _exp_edl(mul_edl(n, _ln_edl(x)));
+
+// ─── EXL ──────────────────────────────────────────────────────────────────────
+// exl(x, y) = exp(x) * ln(y)   natural constant: e   (INCOMPLETE — no add/sub)
+export const exl = (x, y) => Math.exp(x) * Math.log(y);
+export const EXL_E   = Math.E;
+export const ln_exl  = (x)    => exl(0, x);
+export const pow_exl = (x, n) => exl(exl(exl(0, n), x), EXL_E);
+
+// ─── BEST: optimal per-operation routing ──────────────────────────────────────
+export const BEST = {
+  ln:    (x)    => ln_exl(x),
+  pow:   (x, n) => pow_exl(x, n),
+  div:   (x, y) => div_edl(x, y),
+  recip: (x)    => recip_edl(x),
+  mul:   (x, y) => mul_edl(x, y),
+  neg:   (x)    => neg_edl(x),
+  exp:   (x)    => op(x, 1),
+  sub:   (x, y) => sub(x, y),
+  add:   (x, y) => add(x, y),
+};
+
+/** sin(x) via 8-term Taylor using pow_exl (3 nodes/power, 63 nodes total) */
+export const sin_best = (x, terms = 8) => {
+  if (x === 0) return 0;
+  const ax = Math.abs(x), sx = x < 0 ? -1 : 1;
+  let result = x;
+  for (let k = 1; k < terms; k++) {
+    const power = 2 * k + 1;
+    let f = 1; for (let i = 2; i <= power; i++) f *= i;
+    result += (k % 2 === 1 ? -1 : 1) * sx * pow_exl(ax, power) / f;
+  }
+  return result;
+};
+
+/** cos(x) via 8-term Taylor using pow_exl */
+export const cos_best = (x, terms = 8) => {
+  if (x === 0) return 1;
+  const ax = Math.abs(x);
+  let result = 1;
+  for (let k = 1; k < terms; k++) {
+    const power = 2 * k;
+    let f = 1; for (let i = 2; i <= power; i++) f *= i;
+    result += (k % 2 === 1 ? -1 : 1) * pow_exl(ax, power) / f;
+  }
+  return result;
+};
 
 export const IDENTITIES = [
   { name: "eˣ",  emlForm: "eml(x,1)",                          nodes: 1,  depth: 1, status: "verified" },
