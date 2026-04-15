@@ -150,7 +150,7 @@ export default function App() {
   const [xVal,       setXVal]       = useState(1.0);
   const [customExpr, setCustomExpr] = useState("pow(x, 3)");
   const [customX,    setCustomX]    = useState(2.0);
-  const [tab,        setTab]        = useState("verify"); // verify | table | sandbox | tree | best
+  const [tab,        setTab]        = useState("calc"); // verify | table | sandbox | tree | best | calc
   const [bestX,      setBestX]      = useState(1.0);
   const [treeExpr,   setTreeExpr]   = useState("pow(x, 3)");
   const [treeKey,    setTreeKey]    = useState(0); // increment to restart animation

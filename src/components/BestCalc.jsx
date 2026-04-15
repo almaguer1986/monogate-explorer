@@ -78,12 +78,12 @@ function OpPill({ op }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function BestCalc() {
-  const [expr,      setExpr]      = useState("sin(x)");
+  const [expr,      setExpr]      = useState("sin(x)+cos(x)");
   const [xVal,      setXVal]      = useState(1.0);
   const [mode,      setMode]      = useState("best");
   const [result,    setResult]    = useState(null);
   const [evalError, setEvalError] = useState(null);
-  const [showTree,  setShowTree]  = useState(false);
+  const [showTree,  setShowTree]  = useState(true);
   const inputRef = useRef(null);
 
   // ── Debounced evaluation ────────────────────────────────────────────────────
@@ -134,14 +134,25 @@ export default function BestCalc() {
     background: C.tag,
   };
 
+  // Unique operators used — shown in collapsed breakdown header
+  const usedOps = result
+    ? [...new Set(result.nodeLog.map(e => e.op))]
+    : [];
+
   return (
     <div style={{ overflowX: "hidden" }}>
+      {/* Title + powered-by badge */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>✦ BEST Calc</span>
+        <span style={{ fontSize: 9, color: C.muted }}>
+          powered by BEST hybrid — routes each op to its optimal base operator
+        </span>
+      </div>
+
       {/* How to use */}
       <div style={{ fontSize: 10, color: C.muted, marginBottom: 12, lineHeight: 1.7 }}>
-        <strong style={{ color: C.text }}>How to use:</strong>
-        {" "}Tap a function button to load it, drag the x slider to change the input,
-        then switch modes to compare node counts.
-        {" "}To combine functions, type in the box — e.g. <code style={{ color: C.accent }}>sin(x)+cos(x)</code>.
+        Tap a function to load it · drag x to change the input · switch modes to compare node counts.
+        To combine, type in the box: <code style={{ color: C.accent }}>sin(x)+cos(x)</code>
       </div>
 
       {/* Mode selector */}
@@ -151,7 +162,12 @@ export default function BestCalc() {
             {MODES.map(m => (
               <button key={m.id}
                 onClick={() => setMode(m.id)}
-                style={mode === m.id ? btnActive : btnBase}>
+                style={m.id === "best"
+                  ? (mode === "best"
+                    ? { ...btnActive, fontWeight: 700, fontSize: 11 }
+                    : { ...btnBase, color: C.accent, borderColor: "rgba(232,160,32,0.4)", fontSize: 11 })
+                  : (mode === m.id ? btnActive : btnBase)
+                }>
                 {m.label}
               </button>
             ))}
@@ -288,10 +304,12 @@ export default function BestCalc() {
           <button
             onClick={() => setShowTree(v => !v)}
             style={{ ...btnBase, padding: "4px 10px", fontSize: 10,
-              background: "transparent", display: "flex", alignItems: "center", gap: 6 }}>
+              background: "transparent", display: "flex", alignItems: "center", gap: 6,
+              flexWrap: "wrap" }}>
             <span style={{ fontSize: 8 }}>{showTree ? "▼" : "▶"}</span>
-            Node breakdown &nbsp;
-            <span style={{ color: C.muted }}>({result.nodeLog.length} operation{result.nodeLog.length > 1 ? "s" : ""})</span>
+            <span>Node breakdown</span>
+            <span style={{ color: C.muted }}>({result.nodeLog.length} op{result.nodeLog.length > 1 ? "s" : ""})</span>
+            {!showTree && usedOps.map(op => <OpPill key={op} op={op} />)}
           </button>
 
           {showTree && (
