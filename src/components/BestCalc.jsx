@@ -105,9 +105,9 @@ export default function BestCalc() {
   const maxNodes = result ? Math.max(...result.nodeLog.map(e => e.nodes), 1) : 1;
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+  // Quick buttons always replace — avoids "xsin(x)" concatenation bugs
   const handleInsert = (text) => {
-    const v = expr.trim();
-    setExpr(v === "" ? text : v + text);
+    setExpr(text);
     inputRef.current?.focus();
   };
 
@@ -135,11 +135,19 @@ export default function BestCalc() {
   };
 
   return (
-    <div>
+    <div style={{ overflowX: "hidden" }}>
+      {/* How to use */}
+      <div style={{ fontSize: 10, color: C.muted, marginBottom: 12, lineHeight: 1.7 }}>
+        <strong style={{ color: C.text }}>How to use:</strong>
+        {" "}Tap a function button to load it, drag the x slider to change the input,
+        then switch modes to compare node counts.
+        {" "}To combine functions, type in the box — e.g. <code style={{ color: C.accent }}>sin(x)+cos(x)</code>.
+      </div>
+
       {/* Mode selector */}
       <div style={{ ...card, padding: "12px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {MODES.map(m => (
               <button key={m.id}
                 onClick={() => setMode(m.id)}
@@ -148,7 +156,7 @@ export default function BestCalc() {
               </button>
             ))}
           </div>
-          <span style={{ fontSize: 10, color: C.muted, marginLeft: 4 }}>
+          <span style={{ fontSize: 10, color: C.muted }}>
             {MODE_DESC[mode]}
           </span>
         </div>
@@ -210,8 +218,8 @@ export default function BestCalc() {
             />
             <span style={{
               fontSize: 12, color: C.accent, fontFamily: "'Space Mono', monospace",
-              minWidth: 64, textAlign: "right",
-            }}>{xVal.toFixed(4)}</span>
+              minWidth: 54, textAlign: "right", flexShrink: 0,
+            }}>{xVal.toFixed(3)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between",
             fontSize: 9, color: C.muted, marginTop: 3 }}>
@@ -290,8 +298,8 @@ export default function BestCalc() {
             <div style={{ marginTop: 12 }}>
               {result.nodeLog.map((entry, i) => (
                 <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "80px 56px 36px 1fr",
-                  alignItems: "center", gap: 8,
+                  display: "grid", gridTemplateColumns: "1fr 52px 32px 80px",
+                  alignItems: "center", gap: 6,
                   padding: "5px 0",
                   borderBottom: i < result.nodeLog.length - 1
                     ? `1px solid ${C.border}` : "none",
@@ -316,8 +324,8 @@ export default function BestCalc() {
 
               {/* Total row */}
               <div style={{
-                display: "grid", gridTemplateColumns: "80px 56px 36px 1fr",
-                alignItems: "center", gap: 8, paddingTop: 8, marginTop: 4,
+                display: "grid", gridTemplateColumns: "1fr 52px 32px 80px",
+                alignItems: "center", gap: 6, paddingTop: 8, marginTop: 4,
                 borderTop: `1px solid ${C.border}`,
               }}>
                 <span style={{ fontSize: 10, color: C.muted, textTransform: "uppercase",
