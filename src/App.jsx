@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import BestCalc from "./components/BestCalc.jsx";
+import OptimizeTab from "./components/OptimizeTab.jsx";
 import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip,
          BEST, sin_best, cos_best, pow_exl, div_edl, ln_exl } from "./eml.js";
 import {
@@ -245,22 +246,24 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-            {["verify","table","sandbox","tree","best","calc"].map(t => {
+            {["verify","table","sandbox","tree","best","calc","opt"].map(t => {
               const isCalc = t === "calc";
+              const isOpt  = t === "opt";
+              const isHighlit = isCalc || isOpt;
               const isActive = tab === t;
               return (
                 <button key={t} onClick={() => setTab(t)} style={{
-                  padding: isCalc ? "5px 12px" : "5px 10px",
-                  fontSize: isCalc ? 11 : 10,
-                  fontWeight: isCalc ? 700 : 400,
+                  padding: isHighlit ? "5px 12px" : "5px 10px",
+                  fontSize: isHighlit ? 11 : 10,
+                  fontWeight: isHighlit ? 700 : 400,
                   borderRadius:4, textTransform:"uppercase", letterSpacing:"0.04em",
                   background: isActive
                     ? "rgba(232,160,32,0.12)"
-                    : isCalc ? "rgba(232,160,32,0.06)" : "transparent",
-                  border:`1px solid ${isActive ? C.accent : isCalc ? "rgba(232,160,32,0.35)" : C.border}`,
-                  color: isActive ? C.accent : isCalc ? C.accent : C.muted,
+                    : isHighlit ? "rgba(232,160,32,0.06)" : "transparent",
+                  border:`1px solid ${isActive ? C.accent : isHighlit ? "rgba(232,160,32,0.35)" : C.border}`,
+                  color: isActive ? C.accent : isHighlit ? C.accent : C.muted,
                 }}>
-                  {isCalc ? "✦ calc" : t}
+                  {isCalc ? "✦ calc" : isOpt ? "⚙ opt" : t}
                 </button>
               );
             })}
@@ -824,6 +827,9 @@ export default function App() {
 
       {/* ── TAB: CALC ── */}
       {tab === "calc" && <BestCalc />}
+
+      {/* ── TAB: OPT ── */}
+      {tab === "opt" && <OptimizeTab />}
 
       {/* Footer */}
       <div style={{ marginTop:20, paddingTop:14, borderTop:`1px solid ${C.border}`,
