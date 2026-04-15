@@ -244,11 +244,11 @@ export default function App() {
               eml(x,y) = exp(x) − ln(y) · Odrzywołek 2026 · arXiv:2603.21852
             </div>
           </div>
-          <div style={{ display:"flex", gap:4 }}>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {["verify","table","sandbox","tree","best","calc"].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
-                padding:"5px 12px", fontSize:10, borderRadius:4, textTransform:"uppercase",
-                letterSpacing:"0.06em",
+                padding:"5px 10px", fontSize:10, borderRadius:4, textTransform:"uppercase",
+                letterSpacing:"0.04em",
                 background: tab===t ? "rgba(232,160,32,0.12)" : "transparent",
                 border:`1px solid ${tab===t ? C.accent : C.border}`,
                 color: tab===t ? C.accent : C.muted,
