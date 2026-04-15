@@ -78,22 +78,25 @@ function OpPill({ op }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function BestCalc() {
-  const [expr,      setExpr]      = useState("sin(x)+cos(x)");
+  const [expr,      setExpr]      = useState("x^3 + sin(x)");
   const [xVal,      setXVal]      = useState(1.0);
   const [mode,      setMode]      = useState("best");
   const [result,    setResult]    = useState(null);
   const [evalError, setEvalError] = useState(null);
   const [showTree,  setShowTree]  = useState(true);
+  const [live,      setLive]      = useState(false);
   const inputRef = useRef(null);
 
   // ── Debounced evaluation ────────────────────────────────────────────────────
   useEffect(() => {
+    setLive(true);
     const t = setTimeout(() => {
-      if (!expr.trim()) { setResult(null); setEvalError(null); return; }
+      if (!expr.trim()) { setResult(null); setEvalError(null); setLive(false); return; }
       const r = evalExpr(expr, xVal, mode);
-      if (!r) { setResult(null); setEvalError(null); return; }
-      if (r.error) { setEvalError(r.error); setResult(null); }
-      else          { setResult(r);         setEvalError(null); }
+      if (!r) { setResult(null); setEvalError(null); }
+      else if (r.error) { setEvalError(r.error); setResult(null); }
+      else               { setResult(r);          setEvalError(null); }
+      setLive(false);
     }, 150);
     return () => clearTimeout(t);
   }, [expr, xVal, mode]);
@@ -185,6 +188,7 @@ export default function BestCalc() {
           type="text"
           value={expr}
           onChange={e => setExpr(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && inputRef.current?.blur()}
           placeholder="e.g. sin(x) + ln(x+1)"
           style={{
             width: "100%", padding: "10px 14px", marginBottom: 10,
@@ -197,7 +201,7 @@ export default function BestCalc() {
         />
 
         {/* Quick-insert */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8, maxWidth: "100%" }}>
           {QUICK.map(q => (
             <button key={q.label} onClick={() => handleInsert(q.ins)} style={quickBtn}>
               {q.label}
@@ -246,6 +250,20 @@ export default function BestCalc() {
 
       {/* Result */}
       <div style={card}>
+        {/* Live indicator row */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6, minHeight: 14 }}>
+          {live && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: C.green }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: C.green, display: "inline-block",
+                boxShadow: `0 0 4px ${C.green}`,
+              }} />
+              live
+            </span>
+          )}
+        </div>
+
         {evalError ? (
           <div style={{ color: C.red, fontSize: 12 }}>⚠ {evalError}</div>
         ) : result ? (
@@ -274,9 +292,9 @@ export default function BestCalc() {
                 <span style={{
                   fontSize: 10, padding: "3px 9px", borderRadius: 4,
                   background: "rgba(94,196,122,0.10)", border: `1px solid ${C.green}`,
-                  color: C.green,
+                  color: C.green, fontWeight: 700,
                 }}>
-                  {savings}% fewer nodes than pure EML
+                  ✦ {savings}% savings vs pure EML
                 </span>
               )}
 
