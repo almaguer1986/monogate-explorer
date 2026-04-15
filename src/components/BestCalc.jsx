@@ -64,6 +64,45 @@ const MODE_DESC = {
   edl:  "EDL only — exp(x)/ln(y) — excels at div and mul, requires e as constant",
 };
 
+// ── Python export helper ──────────────────────────────────────────────────────
+function exprToPython(expr, mode) {
+  const ns = mode === "best" ? "BEST" : mode === "eml" ? "EML" : mode === "exl" ? "EXL" : "EDL";
+  return expr
+    .replace(/\bsin\b/g, `${ns}.sin`)
+    .replace(/\bcos\b/g, `${ns}.cos`)
+    .replace(/\bexp\b/g, `${ns}.exp`)
+    .replace(/\bln\b/g,  `${ns}.ln`)
+    .replace(/\bpow\b/g, `${ns}.pow`)
+    .replace(/\bsqrt\b/g,`${ns}.sqrt`)
+    .replace(/\babs\b/g, "abs")
+    .replace(/\^/g, "**")
+    .replace(/\bpi\b/g, "math.pi");
+}
+
+function makePySnippet(expr, mode, totalNodes, emlNodes) {
+  const pyExpr = exprToPython(expr, mode);
+  const modeUp = mode.toUpperCase();
+  const nodeNote = emlNodes && mode === "best" && totalNodes < emlNodes
+    ? `# ${totalNodes} nodes BEST  (vs ${emlNodes} pure EML — ${Math.round((1 - totalNodes / emlNodes) * 100)}% fewer exp/ln calls)`
+    : `# ${totalNodes} nodes (${modeUp} mode)`;
+  return [
+    `from monogate import ${mode === "best" ? "BEST" : mode === "eml" ? "EML" : mode === "exl" ? "EXL" : "EDL"}`,
+    "import math",
+    "",
+    "def f(x):",
+    `    ${nodeNote}`,
+    `    return ${pyExpr}`,
+  ].join("\n");
+}
+
+function makeEmbedSnippet(expr, mode) {
+  const p = new URLSearchParams();
+  p.set("expr", expr);
+  if (mode !== "best") p.set("mode", mode);
+  const src = `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+  return `<iframe\n  src="${src}"\n  width="780"\n  height="620"\n  frameborder="0"\n  style="background:#07080f;border-radius:8px;border:1px solid #191b2e;"\n></iframe>`;
+}
+
 // ── OperatorPill ──────────────────────────────────────────────────────────────
 function OpPill({ op }) {
   const s = PILL[op] || PILL.EML;
@@ -94,8 +133,11 @@ export default function BestCalc() {
   const [result,    setResult]    = useState(null);
   const [evalError, setEvalError] = useState(null);
   const [showTree,  setShowTree]  = useState(true);
-  const [live,      setLive]      = useState(false);
-  const [copied,    setCopied]    = useState(false);
+  const [live,       setLive]      = useState(false);
+  const [copied,     setCopied]    = useState(false);
+  const [copiedPy,   setCopiedPy]  = useState(false);
+  const [copiedEmbed,setCopiedEmbed] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const inputRef = useRef(null);
 
   // ── Sync expr+mode to URL (no navigation) ──────────────────────────────────
@@ -327,13 +369,18 @@ export default function BestCalc() {
               </div>
 
               {mode === "best" && result.emlNodes && savings > 0 && (
-                <span style={{
-                  fontSize: 10, padding: "3px 9px", borderRadius: 4,
-                  background: "rgba(94,196,122,0.10)", border: `1px solid ${C.green}`,
-                  color: C.green, fontWeight: 700,
-                }}>
-                  ✦ {savings}% savings vs pure EML
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{
+                    fontSize: 10, padding: "3px 9px", borderRadius: 4,
+                    background: "rgba(94,196,122,0.10)", border: `1px solid ${C.green}`,
+                    color: C.green, fontWeight: 700,
+                  }}>
+                    ✦ {savings}% fewer nodes than pure EML
+                  </span>
+                  <span style={{ fontSize: 9, color: C.muted, paddingLeft: 2 }}>
+                    ≈ {savings}% fewer exp/ln calls on CPU
+                  </span>
+                </div>
               )}
 
               {mode === "eml" && result.totalNodes > 0 && (
@@ -414,6 +461,76 @@ export default function BestCalc() {
                   </span>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Export row */}
+      {result && !evalError && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 9, color: C.muted, textTransform: "uppercase",
+              letterSpacing: "0.06em" }}>
+              export
+            </span>
+            <button
+              onClick={() => {
+                const py = makePySnippet(expr, mode, result.totalNodes, result.emlNodes);
+                navigator.clipboard.writeText(py).then(() => {
+                  setCopiedPy(true);
+                  setTimeout(() => setCopiedPy(false), 2000);
+                });
+              }}
+              style={{ ...btnBase, padding: "3px 9px", fontSize: 9,
+                color: copiedPy ? C.green : C.muted,
+                borderColor: copiedPy ? C.green : C.border,
+                background: copiedPy ? "rgba(94,196,122,0.08)" : "transparent" }}>
+              {copiedPy ? "✓ copied" : "⎘ python"}
+            </button>
+            <button
+              onClick={() => setShowExport(v => !v)}
+              style={{ ...btnBase, padding: "3px 9px", fontSize: 9,
+                color: showExport ? C.accent : C.muted,
+                borderColor: showExport ? C.accent : C.border }}>
+              {"</>"} embed
+            </button>
+          </div>
+
+          {showExport && (
+            <div style={{
+              marginTop: 8, background: C.surface,
+              border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between",
+                alignItems: "center", padding: "8px 12px",
+                borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 9, color: C.muted, textTransform: "uppercase",
+                  letterSpacing: "0.06em" }}>
+                  iframe embed code
+                </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(makeEmbedSnippet(expr, mode)).then(() => {
+                      setCopiedEmbed(true);
+                      setTimeout(() => setCopiedEmbed(false), 2000);
+                    });
+                  }}
+                  style={{ ...btnBase, padding: "2px 8px", fontSize: 9,
+                    color: copiedEmbed ? C.green : C.muted,
+                    borderColor: copiedEmbed ? C.green : C.border,
+                    background: copiedEmbed ? "rgba(94,196,122,0.08)" : "transparent" }}>
+                  {copiedEmbed ? "✓ copied" : "⎘ copy"}
+                </button>
+              </div>
+              <pre style={{
+                margin: 0, padding: "10px 12px",
+                fontFamily: "'Space Mono', monospace", fontSize: 10,
+                color: C.blue, lineHeight: 1.7, overflowX: "auto",
+                whiteSpace: "pre-wrap", wordBreak: "break-all",
+              }}>
+                {makeEmbedSnippet(expr, mode)}
+              </pre>
             </div>
           )}
         </div>

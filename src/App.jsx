@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import BestCalc from "./components/BestCalc.jsx";
 import OptimizeTab from "./components/OptimizeTab.jsx";
+import ChallengeBoard from "./components/ChallengeBoard.jsx";
 import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip,
          BEST, sin_best, cos_best, pow_exl, div_edl, ln_exl } from "./eml.js";
 import {
@@ -157,6 +158,7 @@ export default function App() {
   const [treeKey,    setTreeKey]    = useState(0); // increment to restart animation
   const [treeRoot,   setTreeRoot]   = useState(null);
   const [treeError,  setTreeError]  = useState(null);
+  const [showLearn,  setShowLearn]  = useState(false);
 
   const buildTree = (expr) => {
     const clean = expr.trim();
@@ -246,7 +248,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-            {["verify","table","sandbox","tree","best","calc","opt"].map(t => {
+            {["verify","table","sandbox","tree","best","calc","opt","board"].map(t => {
               const isCalc = t === "calc";
               const isOpt  = t === "opt";
               const isHighlit = isCalc || isOpt;
@@ -263,7 +265,7 @@ export default function App() {
                   border:`1px solid ${isActive ? C.accent : isHighlit ? "rgba(232,160,32,0.35)" : C.border}`,
                   color: isActive ? C.accent : isHighlit ? C.accent : C.muted,
                 }}>
-                  {isCalc ? "✦ calc" : isOpt ? "⚙ opt" : t}
+                  {isCalc ? "✦ calc" : isOpt ? "⚙ opt" : t === "board" ? "⊞ board" : t}
                 </button>
               );
             })}
@@ -830,6 +832,178 @@ export default function App() {
 
       {/* ── TAB: OPT ── */}
       {tab === "opt" && <OptimizeTab />}
+
+      {/* ── TAB: BOARD ── */}
+      {tab === "board" && <ChallengeBoard />}
+
+      {/* ── LEARN SECTION ── */}
+      <div style={{ marginTop:28, borderTop:`1px solid ${C.border}`, paddingTop:20 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          flexWrap:"wrap", gap:8, marginBottom: showLearn ? 20 : 0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Learn how this works</span>
+            <span style={{ fontSize:9, color:C.accent, fontFamily:"'Space Mono',monospace" }}>
+              optional deep dive
+            </span>
+          </div>
+          <button
+            onClick={() => setShowLearn(v => !v)}
+            style={{ fontSize:10, color:C.accent, background:"transparent", border:"none",
+              padding:0, display:"flex", alignItems:"center", gap:4, letterSpacing:"0.04em" }}>
+            {showLearn ? "Hide" : "Show"} explainer
+            <span style={{ display:"inline-block", transform: showLearn ? "rotate(180deg)" : "none",
+              transition:"transform 0.2s" }}>↓</span>
+          </button>
+        </div>
+
+        {showLearn && (
+          <div style={{ display:"flex", flexDirection:"column", gap:32 }}>
+
+            {/* 1 — What is EML? */}
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>
+                1 — What is EML?
+              </div>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:10 }}>
+                A normal scientific calculator has dozens of different buttons: sin, cos, log,
+                +, −, ×, ÷, xⁿ, and so on.
+              </p>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:10 }}>
+                Odrzywołek (2026) proved you only need <span style={{ color:C.text }}>one</span>:
+              </p>
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6,
+                padding:"14px 18px", fontFamily:"'Space Mono',monospace", color:C.accent,
+                fontSize:13, textAlign:"center", margin:"16px 0" }}>
+                eml(x, y) = exp(x) − ln(y)
+              </div>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:14 }}>
+                That's it. One function. Two inputs. With this and the constant 1, you can build
+                every other button on the calculator by combining it with itself.
+              </p>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",
+                gap:8 }}>
+                {[
+                  ["eˣ", "eml(x, 1)"],
+                  ["ln(x)", "eml(1, eml(eml(1, x), 1))"],
+                  ["x + y", "eml(ln(x), eml(neg(y), 1))"],
+                ].map(([label, form]) => (
+                  <div key={label} style={{ background:C.surface, border:`1px solid ${C.border}`,
+                    borderRadius:6, padding:"10px 12px", fontSize:10 }}>
+                    <span style={{ color:C.text, fontWeight:700 }}>{label}</span>
+                    <span style={{ color:C.muted }}> = </span>
+                    <span style={{ color:C.blue }}>{form}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 2 — What Node Cost Means */}
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>
+                2 — What "Node Cost" Means
+              </div>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:10 }}>
+                Every EML expression is a binary tree. Each internal node is one application
+                of the eml operator.
+              </p>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:10 }}>
+                When we say <span style={{ color:C.text }}>ln(x) costs 3 nodes</span>, we mean
+                you need to nest eml three times:
+              </p>
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:6,
+                padding:"12px 16px", fontFamily:"'Space Mono',monospace", fontSize:11,
+                color:C.blue, margin:"14px 0" }}>
+                eml(1, eml(eml(1, x), 1))
+              </div>
+              <p style={{ fontSize:10, color:C.muted, lineHeight:1.7, marginBottom:16 }}>
+                Node count measures computational depth — how many exp and ln operations you
+                actually execute. Fewer nodes = shallower tree, faster evaluation, less
+                numerical error accumulation.
+              </p>
+              <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+                borderRadius:6, padding:"12px 16px" }}>
+                <div style={{ fontSize:9, color:C.muted, textTransform:"uppercase",
+                  letterSpacing:"0.06em", marginBottom:10 }}>
+                  Reference costs (pure EML)
+                </div>
+                {[
+                  ["exp(x)", "1 node"],
+                  ["ln(x)", "3 nodes"],
+                  ["x × y", "13 nodes"],
+                  ["xⁿ", "15 nodes"],
+                  ["sin(x) 8-term Taylor", "245 nodes"],
+                ].map(([op, cost]) => (
+                  <div key={op} style={{ display:"flex", justifyContent:"space-between",
+                    padding:"4px 0", borderBottom:`1px solid ${C.border}`, fontSize:11 }}>
+                    <span style={{ color:C.text, fontFamily:"'Space Mono',monospace" }}>{op}</span>
+                    <span style={{ color:C.muted }}>{cost}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3 — Why Hybrid Execution Works */}
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>
+                3 — Why Hybrid Execution Works
+              </div>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:14 }}>
+                EML isn't the only operator of its kind. There are natural cousins with different strengths:
+              </p>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",
+                gap:8, marginBottom:16 }}>
+                {[
+                  { name:"EML", formula:"exp(x) − ln(y)", note:"Best at + and −", color:"#7c6ff7" },
+                  { name:"EDL", formula:"exp(x) / ln(y)", note:"Best at ÷  (1 node!)", color:"#2dd4bf" },
+                  { name:"EXL", formula:"exp(x) · ln(y)", note:"Best at ln (1 node) and powers", color:"#f59e0b" },
+                ].map(op => (
+                  <div key={op.name} style={{ background:C.surface,
+                    border:`1px solid ${op.color}33`, borderRadius:6, padding:"12px 14px" }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:op.color, marginBottom:4 }}>
+                      {op.name}
+                    </div>
+                    <div style={{ fontSize:10, color:C.text, fontFamily:"'Space Mono',monospace",
+                      marginBottom:6 }}>{op.formula}</div>
+                    <div style={{ fontSize:9, color:C.muted }}>{op.note}</div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize:11, color:C.muted, lineHeight:1.8, marginBottom:12 }}>
+                <span style={{ color:C.text }}>BEST</span> is a smart router that automatically
+                picks the right operator for each operation:
+              </p>
+              <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+                overflow:"hidden" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 60px 80px 90px",
+                  padding:"8px 12px", background:C.bg,
+                  fontSize:9, color:C.muted, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                  <span>Operation</span><span>Uses</span>
+                  <span style={{ textAlign:"right" }}>BEST nodes</span>
+                  <span style={{ textAlign:"right" }}>EML baseline</span>
+                </div>
+                {[
+                  { op:"ln(x)",  src:"EXL", srcColor:"#f59e0b", best:1,  eml:3  },
+                  { op:"xⁿ",    src:"EXL", srcColor:"#f59e0b", best:3,  eml:15 },
+                  { op:"x / y", src:"EDL", srcColor:"#2dd4bf", best:1,  eml:15 },
+                  { op:"x × y", src:"EDL", srcColor:"#2dd4bf", best:7,  eml:13 },
+                  { op:"x + y", src:"EML", srcColor:"#7c6ff7", best:11, eml:11 },
+                ].map(row => (
+                  <div key={row.op} style={{ display:"grid",
+                    gridTemplateColumns:"1fr 60px 80px 90px",
+                    padding:"7px 12px", borderTop:`1px solid ${C.border}`, fontSize:11 }}>
+                    <span style={{ color:C.text, fontFamily:"'Space Mono',monospace" }}>{row.op}</span>
+                    <span style={{ color:row.srcColor, fontWeight:700 }}>{row.src}</span>
+                    <span style={{ textAlign:"right", color:C.accent }}>{row.best}n</span>
+                    <span style={{ textAlign:"right", color:C.muted,
+                      textDecoration:"line-through" }}>{row.eml}n</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div style={{ marginTop:20, paddingTop:14, borderTop:`1px solid ${C.border}`,
