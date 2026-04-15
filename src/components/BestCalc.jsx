@@ -78,14 +78,34 @@ function OpPill({ op }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function BestCalc() {
-  const [expr,      setExpr]      = useState("x^3 + sin(x)");
+  // ── Read URL params on first mount ──────────────────────────────────────────
+  const initParams = () => {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      expr: p.get("expr") ? decodeURIComponent(p.get("expr")) : "x^3 + sin(x)",
+      mode: ["best","eml","exl","edl"].includes(p.get("mode")) ? p.get("mode") : "best",
+    };
+  };
+  const init = initParams();
+
+  const [expr,      setExpr]      = useState(init.expr);
   const [xVal,      setXVal]      = useState(1.0);
-  const [mode,      setMode]      = useState("best");
+  const [mode,      setMode]      = useState(init.mode);
   const [result,    setResult]    = useState(null);
   const [evalError, setEvalError] = useState(null);
   const [showTree,  setShowTree]  = useState(true);
   const [live,      setLive]      = useState(false);
+  const [copied,    setCopied]    = useState(false);
   const inputRef = useRef(null);
+
+  // ── Sync expr+mode to URL (no navigation) ──────────────────────────────────
+  useEffect(() => {
+    const p = new URLSearchParams();
+    p.set("expr", expr);
+    if (mode !== "best") p.set("mode", mode);
+    const qs = p.toString();
+    history.replaceState(null, "", qs ? "?" + qs : window.location.pathname);
+  }, [expr, mode]);
 
   // ── Debounced evaluation ────────────────────────────────────────────────────
   useEffect(() => {
@@ -144,12 +164,30 @@ export default function BestCalc() {
 
   return (
     <div style={{ overflowX: "hidden" }}>
-      {/* Title + powered-by badge */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>✦ BEST Calc</span>
-        <span style={{ fontSize: 9, color: C.muted }}>
-          powered by BEST hybrid — routes each op to its optimal base operator
-        </span>
+      {/* Title + powered-by badge + copy link */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>✦ BEST Calc</span>
+          <span style={{ fontSize: 9, color: C.muted }}>
+            powered by BEST hybrid — routes each op to its optimal base operator
+          </span>
+        </div>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            });
+          }}
+          style={{ ...btnBase, padding: "4px 10px", fontSize: 9,
+            color: copied ? C.green : C.muted,
+            borderColor: copied ? C.green : C.border,
+            background: copied ? "rgba(94,196,122,0.08)" : "transparent",
+            flexShrink: 0,
+          }}>
+          {copied ? "✓ copied" : "⎘ share"}
+        </button>
       </div>
 
       {/* How to use */}
@@ -387,6 +425,70 @@ export default function BestCalc() {
         Operators: + − * / ^ &nbsp;·&nbsp;
         Constants: pi, e &nbsp;·&nbsp;
         Variable: x (use slider)
+      </div>
+
+      {/* sin(x) challenge showcase */}
+      <div style={{ marginTop: 20, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+          Open Challenge: exact sin(x) from terminal {"{1}"}
+        </div>
+        <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
+          No finite EML tree using only the constant 1 is known to compute sin(x) exactly.
+          Below are the best Taylor constructions using BEST hybrid routing.
+          Right-chain topologies are ruled out. Other topology classes remain open.
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, marginBottom: 12 }}>
+          {[
+            { terms: 4,  bestN: 27,  emlN: 105, err: "7.5e-2",  label: "rough" },
+            { terms: 8,  bestN: 63,  emlN: 245, err: "7.7e-7",  label: "good"  },
+            { terms: 13, bestN: 108, emlN: 420, err: "6.5e-15", label: "machine ε" },
+          ].map(row => (
+            <div key={row.terms} style={{
+              background: C.surface, border: `1px solid ${C.border}`,
+              borderRadius: 6, padding: "10px 12px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: C.text }}>{row.terms} terms</span>
+                <span style={{ fontSize: 9, color: C.muted, fontStyle: "italic" }}>{row.label}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{row.bestN}</span>
+                <span style={{ fontSize: 9, color: C.muted }}>nodes (BEST)</span>
+              </div>
+              <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>
+                vs {row.emlN} pure EML &nbsp;
+                <span style={{ color: C.green }}>
+                  −{Math.round((1 - row.bestN / row.emlN) * 100)}%
+                </span>
+              </div>
+              <div style={{ fontSize: 9, color: C.muted }}>
+                max error: <span style={{ color: parseFloat(row.err) < 1e-10 ? C.green : C.muted }}>{row.err}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={() => { setExpr("sin(x)"); setMode("best"); }}
+            style={{ ...btnBase, padding: "5px 12px", fontSize: 10,
+              color: C.accent, borderColor: "rgba(232,160,32,0.4)" }}>
+            ▶ try sin(x) in BEST
+          </button>
+          <button
+            onClick={() => { setExpr("sin(x)"); setMode("eml"); }}
+            style={{ ...btnBase, padding: "5px 12px", fontSize: 10 }}>
+            ▶ try sin(x) in EML
+          </button>
+          <a
+            href="https://github.com/almaguer1986/monogate/issues"
+            target="_blank" rel="noreferrer"
+            style={{ ...btnBase, padding: "5px 12px", fontSize: 10,
+              textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            submit a construction ↗
+          </a>
+        </div>
       </div>
     </div>
   );

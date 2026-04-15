@@ -245,15 +245,25 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-            {["verify","table","sandbox","tree","best","calc"].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                padding:"5px 10px", fontSize:10, borderRadius:4, textTransform:"uppercase",
-                letterSpacing:"0.04em",
-                background: tab===t ? "rgba(232,160,32,0.12)" : "transparent",
-                border:`1px solid ${tab===t ? C.accent : C.border}`,
-                color: tab===t ? C.accent : C.muted,
-              }}>{t}</button>
-            ))}
+            {["verify","table","sandbox","tree","best","calc"].map(t => {
+              const isCalc = t === "calc";
+              const isActive = tab === t;
+              return (
+                <button key={t} onClick={() => setTab(t)} style={{
+                  padding: isCalc ? "5px 12px" : "5px 10px",
+                  fontSize: isCalc ? 11 : 10,
+                  fontWeight: isCalc ? 700 : 400,
+                  borderRadius:4, textTransform:"uppercase", letterSpacing:"0.04em",
+                  background: isActive
+                    ? "rgba(232,160,32,0.12)"
+                    : isCalc ? "rgba(232,160,32,0.06)" : "transparent",
+                  border:`1px solid ${isActive ? C.accent : isCalc ? "rgba(232,160,32,0.35)" : C.border}`,
+                  color: isActive ? C.accent : isCalc ? C.accent : C.muted,
+                }}>
+                  {isCalc ? "✦ calc" : t}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
