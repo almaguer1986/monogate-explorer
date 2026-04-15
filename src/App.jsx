@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import BestCalc from "./components/BestCalc.jsx";
 import { op, exp, ln, E, ZERO, sub, neg, add, mul, div, pow, recip,
          BEST, sin_best, cos_best, pow_exl, div_edl, ln_exl } from "./eml.js";
 import {
@@ -244,7 +245,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display:"flex", gap:4 }}>
-            {["verify","table","sandbox","tree","best"].map(t => (
+            {["verify","table","sandbox","tree","best","calc"].map(t => (
               <button key={t} onClick={() => setTab(t)} style={{
                 padding:"5px 12px", fontSize:10, borderRadius:4, textTransform:"uppercase",
                 letterSpacing:"0.06em",
@@ -810,6 +811,9 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* ── TAB: CALC ── */}
+      {tab === "calc" && <BestCalc />}
 
       {/* Footer */}
       <div style={{ marginTop:20, paddingTop:14, borderTop:`1px solid ${C.border}`,
